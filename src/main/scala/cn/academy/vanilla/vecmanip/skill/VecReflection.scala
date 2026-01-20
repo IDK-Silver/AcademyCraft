@@ -169,9 +169,20 @@ class VecReflectionContext(p: EntityPlayer) extends Context(p, VecReflection) {
   @SubscribeEvent
   def onLivingAttack(evt: LivingAttackEvent) = {
     if (evt.entityLiving.equals(player)) {
-      val (performed, _) = handleAttack(evt.source, evt.ammount, passby = true)
-      if (performed) {
+      val reflectDamage = lerpf(0.6f, 1.2f, ctx.getSkillExp) * evt.ammount
+      val fullReflect = reflectDamage >= evt.ammount
+
+      if (fullReflect) {
         evt.setCanceled(true)
+        // Perform reflect since LivingHurtEvent won't fire
+        consumeDamage(evt.ammount)
+        ctx.addSkillExp(evt.ammount * 0.0004f)
+
+        val sourceEntity = evt.source.getSourceOfDamage
+        if (sourceEntity != null && sourceEntity != player) {
+          ctx.attack(sourceEntity, reflectDamage)
+          sendToClient(MSG_EFFECT, sourceEntity.position)
+        }
       }
     }
   }
@@ -179,30 +190,18 @@ class VecReflectionContext(p: EntityPlayer) extends Context(p, VecReflection) {
   @SubscribeEvent
   def onLivingHurt(evt: LivingHurtEvent) = {
     if (evt.entityLiving.equals(player)) {
-      val (_, dmg) = handleAttack(evt.source, evt.ammount, passby = false)
-      evt.ammount = dmg
-    }
-  }
+      val reflectDamage = lerpf(0.6f, 1.2f, ctx.getSkillExp) * evt.ammount
 
-  /**
-    * @param passby If passby=true, and this isn't a complete absorb, the action will not perform. Else it will.
-    * @return (Whether action had been really performed, processed damage)
-    */
-  private def handleAttack(dmgSource: DamageSource, dmg: Float, passby: Boolean): (Boolean, Float) = {
-    val reflectDamage = lerpf(0.6f, 1.2f, ctx.getSkillExp) * dmg
-    if (!passby) { // Perform the action.
-      consumeDamage(dmg)
-      ctx.addSkillExp(dmg * 0.0004f)
+      consumeDamage(evt.ammount)
+      ctx.addSkillExp(evt.ammount * 0.0004f)
 
-      val sourceEntity = dmgSource.getSourceOfDamage
+      val sourceEntity = evt.source.getSourceOfDamage
       if (sourceEntity != null && sourceEntity != player) {
         ctx.attack(sourceEntity, reflectDamage)
         sendToClient(MSG_EFFECT, sourceEntity.position)
       }
 
-      (true, dmg - reflectDamage)
-    } else {
-      (false, dmg - reflectDamage)
+      evt.ammount = evt.ammount - reflectDamage
     }
   }
 
