@@ -76,6 +76,19 @@ repositories {
         name = "CurseMaven"
         url = uri("https://cursemaven.com")
     }
+    maven {
+        name = "BlameJared"
+        url = uri("https://maven.blamejared.com/")
+    }
+    ivy {
+        name = "IC2"
+        url = uri("http://maven.ic2.player.to/")
+        isAllowInsecureProtocol = true
+        patternLayout {
+            artifact("[orgPath]/[module]/[revision]/[module]-[revision](-[classifier]).[ext]")
+        }
+        metadataSources { artifact() }
+    }
 }
 
 dependencies {
@@ -88,6 +101,14 @@ dependencies {
     implementation(rfg.deobf("com.github.GTNewHorizons:CodeChickenLib:1.1.5.7:dev"))
     implementation(rfg.deobf("com.github.GTNewHorizons:CodeChickenCore:1.1.8:dev"))
     runtimeOnly(rfg.deobf("com.github.GTNewHorizons:NotEnoughItems:2.6.34-GTNH:dev"))
+
+    // Optional dependencies (soft dependencies)
+    // IC2 API - use @jar to skip POM requirement
+    compileOnly("net.industrial-craft:industrialcraft-2:2.2.828-experimental:api@jar")
+    // MineTweaker3
+    compileOnly("MineTweaker3:MineTweaker3-MC1710-Main:1.7.10-3.0.13.34")
+    // NEI (for compile, already have runtime above)
+    compileOnly(rfg.deobf("com.github.GTNewHorizons:NotEnoughItems:2.6.34-GTNH:dev"))
 }
 
 tasks.jar {
