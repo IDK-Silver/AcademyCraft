@@ -73,3 +73,10 @@ out/
 # Runtime Generic
 eclipse/
 logs/
+run/
+
+# Old build files
+build.gradle.old
+
+# Disabled optional support (requires external dependencies)
+src/main/disabled/
