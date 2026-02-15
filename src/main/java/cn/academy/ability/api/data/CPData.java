@@ -348,17 +348,19 @@ public class CPData extends DataPart<EntityPlayer> {
     }
 
     private float getCPRecoverSpeed() {
+        float effectiveMax = getMaxCP();
         float raw = getFloat("cp_recover_speed") *
-                0.0003f * maxCP *
-                MathUtils.lerpf(1, 2, curCP / maxCP);
+                0.0003f * effectiveMax *
+                MathUtils.lerpf(1, 2, curCP / effectiveMax);
 
         return CalcEvent.calc(new CPRecoverSpeed(getEntity(), 1)) * raw;
     }
 
     private float getOverloadRecoverSpeed() {
+        float effectiveMax = getMaxOverload();
         float raw = getFloat("overload_recover_speed") *
-                Math.max(0.002f * maxOverload,
-                        0.007f * maxOverload * MathUtils.lerpf(1, 0.5f, curOverload / maxOverload / 2));
+                Math.max(0.002f * effectiveMax,
+                        0.007f * effectiveMax * MathUtils.lerpf(1, 0.5f, curOverload / effectiveMax / 2));
 
         return CalcEvent.calc(new OverloadRecoverSpeed(getEntity(), 1)) * raw;
     }
