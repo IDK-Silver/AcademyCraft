@@ -83,7 +83,7 @@ class VecReflectionContext(p: EntityPlayer) extends Context(p, VecReflection) {
     })
     entities.removeAll(visited)
 
-    entities.filterNot(EntityAffection.isMarked).foreach (entity => {
+    entities.filterNot(EntityAffection.isMarked).filterNot(isOwnProjectile).foreach (entity => {
       EntityAffection.getAffectInfo(entity) match {
         case Affected(difficulty) =>
           VecReflection.triggerAchievement(player)
@@ -98,6 +98,22 @@ class VecReflectionContext(p: EntityPlayer) extends Context(p, VecReflection) {
             case _ =>
               if(consumeEntity(difficulty)) {
                 reflect(entity, player)
+
+                // Nudge entity forward so it doesn't clip through the player
+                val dist = entity.getDistanceToEntity(player)
+                if (dist < 2.0) {
+                  val speed = Math.sqrt(
+                    entity.motionX * entity.motionX +
+                    entity.motionY * entity.motionY +
+                    entity.motionZ * entity.motionZ)
+                  if (speed > 0) {
+                    val offset = (2.0 - dist + 0.5) / speed
+                    entity.setPosition(
+                      entity.posX + entity.motionX * offset,
+                      entity.posY + entity.motionY * offset,
+                      entity.posZ + entity.motionZ * offset)
+                  }
+                }
 
                 EntityAffection.mark(entity)
 
@@ -169,19 +185,24 @@ class VecReflectionContext(p: EntityPlayer) extends Context(p, VecReflection) {
   @SubscribeEvent
   def onLivingAttack(evt: LivingAttackEvent) = {
     if (evt.entityLiving.equals(player)) {
-      val reflectDamage = lerpf(0.6f, 1.2f, ctx.getSkillExp) * evt.ammount
-      val fullReflect = reflectDamage >= evt.ammount
+      val sourceEntity = evt.source.getSourceOfDamage
+      val isReflectedEntity = sourceEntity != null && EntityAffection.isMarked(sourceEntity)
 
-      if (fullReflect) {
+      if (isReflectedEntity) {
         evt.setCanceled(true)
-        // Perform reflect since LivingHurtEvent won't fire
-        consumeDamage(evt.ammount)
-        ctx.addSkillExp(evt.ammount * 0.0004f)
+      } else {
+        val reflectDamage = lerpf(0.6f, 1.2f, ctx.getSkillExp) * evt.ammount
+        val fullReflect = reflectDamage >= evt.ammount
 
-        val sourceEntity = evt.source.getSourceOfDamage
-        if (sourceEntity != null && sourceEntity != player) {
-          ctx.attack(sourceEntity, reflectDamage)
-          sendToClient(MSG_EFFECT, sourceEntity.position)
+        if (fullReflect) {
+          evt.setCanceled(true)
+          consumeDamage(evt.ammount)
+          ctx.addSkillExp(evt.ammount * 0.0004f)
+
+          if (sourceEntity != null && sourceEntity != player) {
+            ctx.attack(sourceEntity, reflectDamage)
+            sendToClient(MSG_EFFECT, sourceEntity.position)
+          }
         }
       }
     }
@@ -203,6 +224,13 @@ class VecReflectionContext(p: EntityPlayer) extends Context(p, VecReflection) {
 
       evt.ammount = evt.ammount - reflectDamage
     }
+  }
+
+  private def isOwnProjectile(entity: Entity): Boolean = entity match {
+    case arrow: EntityArrow => arrow.shootingEntity == player
+    case throwable: EntityThrowable => throwable.getThrower == player
+    case fireball: EntityFireball => fireball.shootingEntity == player
+    case _ => false
   }
 
   private def consumeEntity(difficulty: Float) = {
